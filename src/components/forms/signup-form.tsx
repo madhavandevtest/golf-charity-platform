@@ -29,24 +29,38 @@ export function SignupForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const form = useForm<z.input<typeof signupSchema>, unknown, z.output<typeof signupSchema>>({
-    resolver: zodResolver(signupSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      fullName: "",
-      charityId: selectedCharityId ?? charities[0]?.id ?? "",
-      charityPercentage: 10,
-    },
-  });
+  const [selectedCharity, setSelectedCharity] = useState<string>(
+    selectedCharityId ?? charities[0]?.id ?? ""
+  );
+
+  const form = useForm<z.input<typeof signupSchema>, unknown, z.output<typeof signupSchema>>(
+    {
+      resolver: zodResolver(signupSchema),
+      defaultValues: {
+        email: "",
+        password: "",
+        fullName: "",
+        charityId: selectedCharity,
+        charityPercentage: 10,
+      },
+    }
+  );
 
   const onSubmit = form.handleSubmit((values) => {
     startTransition(async () => {
       // Validate charity is selected
-      if (!values.charityId) {
+      if (!selectedCharity) {
         setError("Please select a charity");
+        toast.error("Please select a charity");
         return;
-}
+      }
+
+      // Use the manually selected charity
+      const finalValues = {
+        ...values,
+        charityId: selectedCharity,
+      };
+
       if (isMockMode) {
         toast.success("Mock account created.");
         router.push(`/dashboard/subscription?plan=${selectedPlan ?? "monthly"}`);
@@ -58,24 +72,25 @@ export function SignupForm({
       setError(null);
 
       const { error: signUpError } = await supabase.auth.signUp({
-        email: values.email,
-        password: values.password,
+        email: finalValues.email,
+        password: finalValues.password,
         options: {
           emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
           data: {
-            full_name: values.fullName,
-            charity_id: values.charityId,
-            charity_percentage: values.charityPercentage,
+            full_name: finalValues.fullName,
+            charity_id: finalValues.charityId,
+            charity_percentage: finalValues.charityPercentage,
           },
         },
       });
 
       if (signUpError) {
         setError(signUpError.message);
+        toast.error(signUpError.message);
         return;
       }
 
-      toast.success("Account created. If email confirmation is enabled, check your inbox.");
+      toast.success("Account created. Check your email for confirmation.");
       router.push(`/dashboard/subscription?plan=${selectedPlan ?? "monthly"}`);
       router.refresh();
     });
@@ -85,51 +100,96 @@ export function SignupForm({
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
         <label className="mb-2 block text-sm font-medium">Full name</label>
-        <Input {...form.register("fullName")} />
+        <Input
+          type="text"
+          placeholder="John Doe"
+          {...form.register("fullName")}
+          required
+        />
+        {form.formState.errors.fullName && (
+          <p className="mt-1 text-sm text-red-600">
+            {form.formState.errors.fullName.message}
+          </p>
+        )}
       </div>
+
       <div>
         <label className="mb-2 block text-sm font-medium">Email</label>
-        <Input type="email" {...form.register("email")} />
+        <Input
+          type="email"
+          placeholder="you@example.com"
+          {...form.register("email")}
+          required
+        />
+        {form.formState.errors.email && (
+          <p className="mt-1 text-sm text-red-600">
+            {form.formState.errors.email.message}
+          </p>
+        )}
       </div>
+
       <div>
         <label className="mb-2 block text-sm font-medium">Password</label>
-        <Input type="password" {...form.register("password")} />
+        <Input
+          type="password"
+          placeholder="••••••••"
+          {...form.register("password")}
+          required
+        />
+        {form.formState.errors.password && (
+          <p className="mt-1 text-sm text-red-600">
+            {form.formState.errors.password.message}
+          </p>
+        )}
       </div>
+
       <div>
         <label className="mb-2 block text-sm font-medium">Choose a charity</label>
-        <Select {...form.register("charityId")}>
+        <select
+          value={selectedCharity}
+          onChange={(e) => {
+            setSelectedCharity(e.target.value);
+            form.setValue("charityId", e.target.value);
+          }}
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+          required
+        >
+          <option value="">Select a charity...</option>
           {charities.map((charity) => (
             <option key={charity.id} value={charity.id}>
               {charity.name}
             </option>
           ))}
-        </Select>
+        </select>
+        {!selectedCharity && (
+          <p className="mt-1 text-sm text-red-600">Please select a charity</p>
+        )}
       </div>
+
       <div>
-        <label className="mb-2 block text-sm font-medium">Charity contribution %</label>
-        <Input type="number" min={10} max={100} {...form.register("charityPercentage")} />
+        <label className="mb-2 block text-sm font-medium">
+          Charity contribution %
+        </label>
+        <Input
+          type="number"
+          min="10"
+          max="100"
+          placeholder="10"
+          {...form.register("charityPercentage", { valueAsNumber: true })}
+          required
+        />
+        {form.formState.errors.charityPercentage && (
+          <p className="mt-1 text-sm text-red-600">
+            {form.formState.errors.charityPercentage.message}
+          </p>
+        )}
       </div>
-    {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-    {form.formState.errors.fullName && (
-      <p className="text-sm text-red-600">{form.formState.errors.fullName.message}</p>
-   )}
-    {form.formState.errors.email && (
-  <p className="text-sm text-red-600">{form.formState.errors.email.message}</p>
-   )}
-   {form.formState.errors.password && (
-  <p className="text-sm text-red-600">{form.formState.errors.password.message}</p>
-)}
-{form.formState.errors.charityId && (
-  <p className="text-sm text-red-600">{form.formState.errors.charityId.message}</p>
-)}
- {form.formState.errors.charityPercentage && (
-  <p className="text-sm text-red-600">{form.formState.errors.charityPercentage.message}</p>
-)}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
- <Button type="submit" disabled={isPending} className="w-full">
-  {isPending ? "Creating account..." : "Create account"}
-</Button>
+      <Button type="submit" disabled={isPending} className="w-full">
+        {isPending ? "Creating account..." : "Create account"}
+      </Button>
     </form>
   );
 }
