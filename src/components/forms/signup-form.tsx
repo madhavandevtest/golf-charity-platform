@@ -42,6 +42,11 @@ export function SignupForm({
 
   const onSubmit = form.handleSubmit((values) => {
     startTransition(async () => {
+      // Validate charity is selected
+      if (!values.charityId) {
+        setError("Please select a charity");
+        return;
+}
       if (isMockMode) {
         toast.success("Mock account created.");
         router.push(`/dashboard/subscription?plan=${selectedPlan ?? "monthly"}`);
