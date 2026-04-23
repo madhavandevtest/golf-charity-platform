@@ -104,10 +104,27 @@ export function SignupForm({
         <label className="mb-2 block text-sm font-medium">Charity contribution %</label>
         <Input type="number" min={10} max={100} {...form.register("charityPercentage")} />
       </div>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <Button type="submit" disabled={isPending} className="w-full">
-        {isPending ? "Creating account..." : "Create account"}
-      </Button>
+    {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+    {form.formState.errors.fullName && (
+      <p className="text-sm text-red-600">{form.formState.errors.fullName.message}</p>
+   )}
+    {form.formState.errors.email && (
+  <p className="text-sm text-red-600">{form.formState.errors.email.message}</p>
+   )}
+   {form.formState.errors.password && (
+  <p className="text-sm text-red-600">{form.formState.errors.password.message}</p>
+)}
+{form.formState.errors.charityId && (
+  <p className="text-sm text-red-600">{form.formState.errors.charityId.message}</p>
+)}
+ {form.formState.errors.charityPercentage && (
+  <p className="text-sm text-red-600">{form.formState.errors.charityPercentage.message}</p>
+)}
+
+ <Button type="submit" disabled={isPending} className="w-full">
+  {isPending ? "Creating account..." : "Create account"}
+</Button>
     </form>
   );
 }
