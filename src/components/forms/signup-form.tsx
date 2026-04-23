@@ -9,8 +9,6 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/browser";
 import type { Charity } from "@/lib/types";
 import { signupSchema } from "@/lib/validators/auth";
@@ -32,6 +30,7 @@ export function SignupForm({
   const [selectedCharity, setSelectedCharity] = useState<string>(
     selectedCharityId ?? charities[0]?.id ?? ""
   );
+  const hasCharities = charities.length > 0;
 
   const form = useForm<z.input<typeof signupSchema>, unknown, z.output<typeof signupSchema>>(
     {
@@ -48,14 +47,18 @@ export function SignupForm({
 
   const onSubmit = form.handleSubmit((values) => {
     startTransition(async () => {
-      // Validate charity is selected
+      if (!hasCharities) {
+        setError("No charities are available right now. Please add charity records in Supabase first.");
+        toast.error("No charities are available right now.");
+        return;
+      }
+
       if (!selectedCharity) {
         setError("Please select a charity");
         toast.error("Please select a charity");
         return;
       }
 
-      // Use the manually selected charity
       const finalValues = {
         ...values,
         charityId: selectedCharity,
@@ -70,12 +73,13 @@ export function SignupForm({
 
       const supabase = createClient();
       setError(null);
+      const redirectBaseUrl = window.location.origin;
 
       const { error: signUpError } = await supabase.auth.signUp({
         email: finalValues.email,
         password: finalValues.password,
         options: {
-          emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
+          emailRedirectTo: `${redirectBaseUrl}/api/auth/callback`,
           data: {
             full_name: finalValues.fullName,
             charity_id: finalValues.charityId,
@@ -91,7 +95,7 @@ export function SignupForm({
       }
 
       toast.success("Account created. Check your email for confirmation.");
-      router.push(`/dashboard/subscription?plan=${selectedPlan ?? "monthly"}`);
+      router.push(`/login?redirectTo=/dashboard/subscription?plan=${selectedPlan ?? "monthly"}`);
       router.refresh();
     });
   });
@@ -151,18 +155,24 @@ export function SignupForm({
             setSelectedCharity(e.target.value);
             form.setValue("charityId", e.target.value);
           }}
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-gray-100"
+          disabled={!hasCharities}
           required
         >
-          <option value="">Select a charity...</option>
+          <option value="">{hasCharities ? "Select a charity..." : "No charities available"}</option>
           {charities.map((charity) => (
             <option key={charity.id} value={charity.id}>
               {charity.name}
             </option>
           ))}
         </select>
-        {!selectedCharity && (
+        {hasCharities && !selectedCharity && (
           <p className="mt-1 text-sm text-red-600">Please select a charity</p>
+        )}
+        {!hasCharities && (
+          <p className="mt-1 text-sm text-red-600">
+            Charity records are missing from the deployed database, so account creation is blocked.
+          </p>
         )}
       </div>
 

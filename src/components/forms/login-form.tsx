@@ -35,38 +35,39 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
 
   const onSubmitLogic = async (values: LoginInput) => {
     startTransition(async () => {
-    if (isMockMode) {
-      const isAdminLogin =
-        values.email === mockAdminUser.email && values.password === MOCK_ADMIN_PASSWORD;
+      if (isMockMode) {
+        const isAdminLogin =
+          values.email === mockAdminUser.email && values.password === MOCK_ADMIN_PASSWORD;
 
-      if (!isAdminLogin) {
-        setError("Invalid credentials. Use the mock admin button for local access.");
+        if (!isAdminLogin) {
+          setError("Invalid credentials. Use the mock admin button for local access.");
+          return;
+        }
+
+        document.cookie = "mock_auth_role=admin; path=/; SameSite=Lax";
+        toast.success("Mock login successful.");
+        router.push(redirectTo ?? "/admin");
+        router.refresh();
         return;
       }
 
-      document.cookie = "mock_auth_role=admin; path=/; SameSite=Lax";
-      toast.success("Mock login successful.");
-      router.push(redirectTo ?? "/admin");
+      const supabase = createClient();
+      setError(null);
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        toast.error(signInError.message);
+        return;
+      }
+
+      toast.success("Welcome back.");
+      router.push(redirectTo ?? "/dashboard");
       router.refresh();
-      return;
-    }
-
-    const supabase = createClient();
-    setError(null);
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: values.email,
-      password: values.password,
-    });
-
-    if (signInError) {
-      setError(signInError.message);
-      return;
-    }
-
-    toast.success("Welcome back.");
-    router.push(redirectTo ?? "/dashboard");
-    router.refresh();
     });
   };
 
